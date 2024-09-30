@@ -106,7 +106,7 @@ var (
 		CoreSched:        {Default: false, PreRelease: featuregate.Alpha},
 		TerwayQoS:        {Default: false, PreRelease: featuregate.Alpha},
 		TCNetworkQoS:     {Default: false, PreRelease: featuregate.Alpha},
-		RDMAEnvInject:    {Default: false, PreRelease: featuregate.Alpha},//TODO RDMA@Stone
+		RDMAEnvInject:    {Default: false, PreRelease: featuregate.Alpha},
 	}
 
 	runtimeHookPlugins = map[featuregate.Feature]HookPlugin{
@@ -118,7 +118,7 @@ var (
 		CoreSched:        coresched.Object(),
 		TerwayQoS:        terwayqos.Object(),
 		TCNetworkQoS:     tc.Object(),
-		RDMAEnvInject:    rdma.Object(),//TODO plugin#RDMA
+		RDMAEnvInject:    rdma.Object(),
 	}
 )
 

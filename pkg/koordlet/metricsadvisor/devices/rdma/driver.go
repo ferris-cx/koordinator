@@ -28,7 +28,7 @@ func GetNetDevice() (metriccache.Devices, error) {
 		if !IsNetDevice(device.Class.ID) || helper.IsSriovVF(device.Address) {
 			continue
 		}
-		netDevice := util.RDMADeviceInfo{//0000:01:00.0
+		netDevice := util.RDMADeviceInfo{
 			ID:            device.Address,
 			RDMAResources: rdmamap.GetRdmaDevicesForPcidev(device.Address),
 			VFEnabled:     helper.SriovConfigured(device.Address),
@@ -45,17 +45,17 @@ func GetNetDevice() (metriccache.Devices, error) {
 			//continue
 		}
 		nodeID, pcie, _, err := helper.ParsePCIInfo(device.Address)
-		klog.Warningf("getNetDevice(): nodeID:%d pcie:%s", nodeID, pcie)
+		//klog.Warningf("getNetDevice(): nodeID:%d pcie:%s", nodeID, pcie)
 		if err != nil {
 			klog.Errorf("getNetDevice(): parse pci device %s error, %v", device.Address, err)
 			return nil, err
 		}
 		netDevice.NodeID = nodeID
 		netDevice.PCIE = pcie
-		klog.Warningf("getNetDevice(): netDevice:%v", netDevice)
+		//klog.Warningf("getNetDevice(): netDevice:%v", netDevice)
 		rdmaUVerbs, _ := GetUVerbsViaPciAdd(device.Address)
 		netDevice.DevicePaths = append(netDevice.DevicePaths, rdmaUVerbs)
-		klog.Warningf("getNetDevice(): netDevice.VFEnabled:%s", netDevice.VFEnabled)
+		//klog.Warningf("getNetDevice(): netDevice.VFEnabled:%s", netDevice.VFEnabled)
 		if netDevice.VFEnabled {
 			vfList, err := helper.GetVFList(netDevice.ID)
 			if err != nil {

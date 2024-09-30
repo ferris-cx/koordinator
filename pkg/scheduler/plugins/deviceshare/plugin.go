@@ -515,24 +515,21 @@ func (p *Plugin) PreBindReservation(ctx context.Context, cycleState *framework.C
 
 func (p *Plugin) preBindObject(ctx context.Context, cycleState *framework.CycleState, object metav1.Object, nodeName string) *framework.Status {
 	state, status := getPreFilterState(cycleState)
-	klog.V(4).Info("preBindObject: state1: %v", state)
 	if !status.IsSuccess() {
 		return status
 	}
-	klog.V(4).Info("preBindObject: state.skip: %s", state.skip)
 	if state.skip {
 		return nil
 	}
 
-	//填充分配结果的字段busID
+	//Fill the field busID for the assignment result
 	var deviceAllocs *apiext.DeviceAllocations
 	deviceAllocs, err := fillBDFInfo(p.nodeDeviceCache, &state.allocationResult, nodeName)
-	if err!=nil{
+	if err!=nil {
 		klog.V(4).Info("preBindObject: fillBDFInfo error: %s", err)
 	}
 
 	state.allocationResult = *deviceAllocs
-	klog.V(4).Info("preBindObject: state.allocationResult: %s", state.allocationResult)
 	if err := apiext.SetDeviceAllocations(object, state.allocationResult); err != nil {
 		return framework.NewStatus(framework.Error, err.Error())
 	}
@@ -540,11 +537,11 @@ func (p *Plugin) preBindObject(ctx context.Context, cycleState *framework.CycleS
 }
 
 func fillBDFInfo(nodeDeviceCache *nodeDeviceCache, deviceAllocations *apiext.DeviceAllocations, nodeName string) (*apiext.DeviceAllocations, error) {
-	klog.V(4).Info("fillBDFInfo:", "nodeDeviceCache", nodeDeviceCache, "deviceAllocations", deviceAllocations,"nodeName", nodeName)
+	klog.V(5).Info("fillBDFInfo:", "nodeDeviceCache", nodeDeviceCache, "deviceAllocations", deviceAllocations,"nodeName", nodeName)
 	if nodeDeviceCache ==nil || deviceAllocations==nil{
 		return deviceAllocations, nil
 	}
-	klog.V(4).Info("fillBDFInfo: start to get deviceInfos")
+	klog.V(5).Info("fillBDFInfo: start to get deviceInfos")
 	var deviceInfos []*schedulingv1alpha1.DeviceInfo
 	if nodeDeviceCache.nodeDeviceInfos[nodeName] !=nil {
 		if nodeDeviceCache.nodeDeviceInfos[nodeName].deviceInfos !=nil {
@@ -556,15 +553,12 @@ func fillBDFInfo(nodeDeviceCache *nodeDeviceCache, deviceAllocations *apiext.Dev
 		return deviceAllocations, nil
 	}
 
-	klog.V(4).Info("fillBDFInfo: start to get rdmaAllocations")
 	deviceAllocMap := *deviceAllocations
 	rdmaAllocations, ok := deviceAllocMap[schedulingv1alpha1.RDMA]
-	klog.V(4).Info("fillBDFInfo:", "rdmaAllocations", rdmaAllocations)
 	if !ok {
 		return deviceAllocations, nil
 	}
 
-	klog.V(4).Info("fillBDFInfo: start to fill busID")
 	for i, dev := range rdmaAllocations {
 		for _,devTmp := range deviceInfos {
 			if dev.Minor == *devTmp.Minor{

@@ -32,7 +32,7 @@ const (
 type DeviceSpec struct {
 	Devices []DeviceInfo `json:"devices,omitempty"`
 }
-//TODO 用于生成Device CRD内容
+
 type DeviceInfo struct {
 	// Type represents the type of device
 	Type DeviceType `json:"type,omitempty"`

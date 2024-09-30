@@ -104,9 +104,6 @@ func (p *rdmaPlugin) InjectContainerRDMAEnv(proto protocol.HooksProtocol) error 
 	return nil
 }
 
-// ConvertToJSON takes a slice of strings and converts it into a JSON string.
-//{"0000:01:01.2":{"generic":{"deviceID":"0000:01:01.2"}},
-// "0000:01:01.5":{"generic":{"deviceID":"0000:01:01.5"}}}
 func ConvertToJSON(rdmaIDs []string) (string, error) {
 	deviceMap := make(DeviceMap)
 

@@ -140,7 +140,6 @@ func (p *Plugin) Calculate(_ *configuration.ColocationStrategy, node *corev1.Nod
 
 	// calculate device resources
 	device := &schedulingv1alpha1.Device{}
-	//TODO 获取自定义CRD资源类型：device
 	if err := client.Get(context.TODO(), types.NamespacedName{Name: node.Name, Namespace: node.Namespace}, device); err != nil {
 		if !errors.IsNotFound(err) {
 			klog.V(4).InfoS("failed to get device for node", "node", node.Name, "err", err)
@@ -174,7 +173,7 @@ func (p *Plugin) calculate(node *corev1.Node, device *schedulingv1alpha1.Device)
 
 	// calculate rdma resources
 	rdmaResources := make(corev1.ResourceList)
-	rdmaStasMap := make(map[int32]int)//RDMA1:4 RDMA2:4
+	rdmaStasMap := make(map[int32]int)
 	rdmaPFNum := 0
 
 	for _, d := range device.Spec.Devices {
@@ -182,8 +181,6 @@ func (p *Plugin) calculate(node *corev1.Node, device *schedulingv1alpha1.Device)
 			continue
 		}
 		rdmaPFNum++
-		//util.AddResourceList(rdmaResources, d.Resources)
-		//统计VF个数，最终写到Node.status是koordinator.sh/rdma:8 还是 koordinator.sh/rdma: 1,而koordinator.sh/vrdma-vf: 8?
 		if d.VFGroups != nil {
 			rdmaVFNum := 0
 			for _, vg := range d.VFGroups{
@@ -197,9 +194,8 @@ func (p *Plugin) calculate(node *corev1.Node, device *schedulingv1alpha1.Device)
 	for _, values := range rdmaStasMap {
 		vfs += int64(values)
 	}
-	klog.V(4).InfoS("Statistic RDMA rdmaStasMap", "rdmaStasMap", rdmaStasMap)
-	klog.V(4).InfoS("Statistic RDMA num", "node", node.Name, "rdmanum:", rdmaPFNum, "vfnum:", vfs)
 
+	//For now, only one server supports one form, either PF or VF
 	if vfs==0 {
 		totalPF := resource.NewQuantity(int64(rdmaPFNum), resource.BinarySI)
 		rdmaResources[extension.ResourceRDMA] = *totalPF
@@ -220,23 +216,6 @@ func (p *Plugin) calculate(node *corev1.Node, device *schedulingv1alpha1.Device)
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
 	klog.V(5).InfoS("calculate rdma resources", "node", node.Name, "resources", rdmaResources)
-
-	// calculate labels about rdma driver and model
-	/*updatedLabels := map[string]string{}
-	if gpuModel, ok := device.Labels[extension.LabelRDMAModel]; ok {
-		updatedLabels[extension.LabelRDMAModel] = gpuModel
-	}
-	if gpuDriverVersion, ok := device.Labels[extension.LabelRDMADriverVersion]; ok {
-		updatedLabels[extension.LabelRDMADriverVersion] = gpuDriverVersion
-	}
-	if len(updatedLabels) != 0 {
-		items = append(items, framework.ResourceItem{
-			Name:    PluginName,
-			Labels:  updatedLabels,
-			Message: UpdateLabelsMsg,
-		})
-	}
-	klog.V(5).InfoS("calculate edma labels", "node", node.Name, "labels", device.Labels)*/
 
 	return items, nil
 }

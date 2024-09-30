@@ -82,7 +82,7 @@ type DeviceAllocation struct {
 	Minor     int32                      `json:"minor"`
 	Resources corev1.ResourceList        `json:"resources"`
 	Extension *DeviceAllocationExtension `json:"extension,omitempty"`
-	BusID     string 					 `json:"busID,omitempty"`//TODO 添加测试
+	BusID     string 					 `json:"busID,omitempty"`
 }
 
 type DeviceAllocationExtension struct {
