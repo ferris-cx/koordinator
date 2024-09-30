@@ -1,0 +1,39 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: mutating-webhook-configuration
+webhooks:
+- name: mpod-create.koordinator.sh
+  namespaceSelector:
+    matchExpressions:
+    - key: control-plane
+      operator: DoesNotExist
+- name: mpod-update.koordinator.sh
+  namespaceSelector:
+    matchExpressions:
+    - key: control-plane
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: pod.koordinator.sh/mutating-update
+      operator: In
+      values:
+        - "true"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: validating-webhook-configuration
+webhooks:
+- name: vpod.koordinator.sh
+  namespaceSelector:
+    matchExpressions:
+      - key: control-plane
+        operator: DoesNotExist
+- name: vconfigmap.koordinator.sh
+  objectSelector:
+    matchExpressions:
+      - key: koordinator.sh/configmap-type
+        operator: In
+        values:
+          - slo-controller-config

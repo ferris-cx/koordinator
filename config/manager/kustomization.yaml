@@ -1,0 +1,30 @@
+resources:
+  - manager.yaml
+  - scheduler.yaml
+  - scheduler-config.yaml
+  - descheduler.yaml
+  - descheduler-config.yaml
+  - koordlet.yaml
+  - koord-batch.yaml
+  - koord-free.yaml
+  - koord-mid.yaml
+  - koord-prod.yaml
+  - slo-controller-config.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+  - name: descheduler
+    newName: ghcr.io/koordinator-sh/koord-descheduler
+    newTag: latest
+  - name: koordlet
+    newName: ghcr.io/koordinator-sh/koordlet
+    newTag: latest
+  - name: manager
+    newName: ghcr.io/koordinator-sh/koord-manager
+    newTag: latest
+  - name: scheduler
+    newName: ghcr.io/koordinator-sh/koord-scheduler
+    newTag: latest
