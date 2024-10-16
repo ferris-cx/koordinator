@@ -73,7 +73,7 @@ func initGPUDeviceManager() GPUDeviceManager {
 		return &dummyDeviceManager{}
 	}
 	manager := &gpuDeviceManager{start: atomic.NewBool(false)}
-	if err := manager.initGPUData(); err != nil {
+	if err := manager.initGPUData(); err != nil { //TODO 初始化GPU设备拓扑数据
 		klog.Warningf("nvml init gpu data, error %s", err)
 		manager.shutdown()
 		return &dummyDeviceManager{}
@@ -305,6 +305,7 @@ func (g *gpuDeviceManager) getContainerGPUUsage(containerID, podParentDir string
 	return g.getPodOrContainerTotalGPUUsageOfPIDs(containerID, false, currentPIDs), nil
 }
 
+// TODO 没看到服务器上的GPU周期性变更。就是硬件拓扑的周期性拉取变更。这个逻辑没有找到！？
 func (g *gpuDeviceManager) collectGPUUsage() {
 	processesGPUUsages := make(map[uint32][]*rawGPUMetric)
 	for deviceIndex, gpuDevice := range g.devices {

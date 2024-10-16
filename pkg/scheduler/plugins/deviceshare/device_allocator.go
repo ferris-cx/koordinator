@@ -75,6 +75,7 @@ func (a *AutopilotAllocator) Prepare() *framework.Status {
 	}
 	state := a.state
 	nodeDevice := a.nodeDevice
+	//TODO requestsPerInstance:Pod申请资源，按照资源类别分组； desiredCountPerDeviceType：每种资源个数，按照资源类别分组
 	requestsPerInstance, desiredCountPerDeviceType, status := a.calcRequestsAndCountByDeviceType(state.podRequests, nodeDevice, state.hints)
 	if !status.IsSuccess() {
 		return status
@@ -95,6 +96,7 @@ func (a *AutopilotAllocator) Allocate(
 	required, preferred map[schedulingv1alpha1.DeviceType]sets.Int,
 	requiredDeviceResources, preemptibleDeviceResources map[schedulingv1alpha1.DeviceType]deviceResources,
 ) (apiext.DeviceAllocations, *framework.Status) {
+	//TODO Prepare的目的是设置以下这两个值： a.requestsPerInstance、a.desiredCountPerDeviceType
 	if status := a.Prepare(); !status.IsSuccess() {
 		return nil, status
 	}

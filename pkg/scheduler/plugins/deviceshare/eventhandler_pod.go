@@ -86,6 +86,33 @@ func (n *nodeDeviceCache) onPodDelete(obj interface{}) {
 	n.deletePod(pod)
 }
 
+func (n *nodeDeviceCache) deletePod(pod *corev1.Pod) {
+	if pod.Spec.NodeName == "" {
+		return
+	}
+
+	devicesAllocation, err := apiext.GetDeviceAllocations(pod.Annotations)
+	if err != nil {
+		klog.Errorf("failed to get device allocation from pod %v, err: %v", klog.KObj(pod), err)
+		return
+	}
+	if len(devicesAllocation) == 0 {
+		return
+	}
+
+	info := n.getNodeDevice(pod.Spec.NodeName, false)
+	if info == nil {
+		klog.Errorf("node device cache not found, nodeName: %v, pod: %v", pod.Spec.NodeName, klog.KObj(pod))
+		return
+	}
+
+	info.lock.Lock()
+	defer info.lock.Unlock()
+
+	info.updateCacheUsed(devicesAllocation, pod, false)
+	klog.V(5).InfoS("pod has been deleted so remove pod from nodeDevice cache on node", "pod", klog.KObj(pod), "node", pod.Spec.NodeName)
+}
+
 func (n *nodeDeviceCache) updatePod(oldPod *corev1.Pod, pod *corev1.Pod) {
 	if pod.Spec.NodeName == "" {
 		klog.V(5).InfoS("Pod missed nodeName", "pod", klog.KObj(pod))
@@ -119,39 +146,12 @@ func (n *nodeDeviceCache) updatePod(oldPod *corev1.Pod, pod *corev1.Pod) {
 	info := n.getNodeDevice(pod.Spec.NodeName, true)
 	info.lock.Lock()
 	defer info.lock.Unlock()
-	if oldPod != nil && len(oldAllocations) > 0 {
+	if oldPod != nil && len(oldAllocations) > 0 { //TODO 说明是删除
 		info.updateCacheUsed(oldAllocations, oldPod, false)
 		klog.V(5).InfoS("remove old pod from nodeDevice cache on node", "pod", klog.KObj(pod), "node", oldPod.Spec.NodeName)
 	}
-	if len(allocations) > 0 {
+	if len(allocations) > 0 { //TODO 新增p
 		info.updateCacheUsed(allocations, pod, true)
 		klog.V(5).InfoS("update pod in nodeDevice cache on node", "pod", klog.KObj(pod), "node", pod.Spec.NodeName)
 	}
-}
-
-func (n *nodeDeviceCache) deletePod(pod *corev1.Pod) {
-	if pod.Spec.NodeName == "" {
-		return
-	}
-
-	devicesAllocation, err := apiext.GetDeviceAllocations(pod.Annotations)
-	if err != nil {
-		klog.Errorf("failed to get device allocation from pod %v, err: %v", klog.KObj(pod), err)
-		return
-	}
-	if len(devicesAllocation) == 0 {
-		return
-	}
-
-	info := n.getNodeDevice(pod.Spec.NodeName, false)
-	if info == nil {
-		klog.Errorf("node device cache not found, nodeName: %v, pod: %v", pod.Spec.NodeName, klog.KObj(pod))
-		return
-	}
-
-	info.lock.Lock()
-	defer info.lock.Unlock()
-
-	info.updateCacheUsed(devicesAllocation, pod, false)
-	klog.V(5).InfoS("pod has been deleted so remove pod from nodeDevice cache on node", "pod", klog.KObj(pod), "node", pod.Spec.NodeName)
 }

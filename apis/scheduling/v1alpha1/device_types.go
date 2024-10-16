@@ -47,6 +47,8 @@ type DeviceInfo struct {
 	// Health indicates whether the device is normal
 	// +kubebuilder:default=false
 	Health bool `json:"health"`
+	//TODO 临时添加，目的为了显示故障码
+	Xid uint64 `json:"xid"`
 	// Resources is a set of (resource name, quantity) pairs
 	Resources corev1.ResourceList `json:"resources,omitempty"`
 	// Topology represents the topology information about the device

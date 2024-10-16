@@ -28,7 +28,7 @@ import (
 )
 
 type NUMATopology struct {
-	numNodePerSocket int
+	numNodePerSocket int //TODO 每个socket对应几个node
 	nodes            map[int][]PCIe
 }
 
@@ -88,7 +88,7 @@ func newNUMATopology(deviceObj *schedulingv1alpha1.Device) *NUMATopology {
 		}
 		nodes.Insert(pcieIndex.node)
 	}
-	for _, v := range nodeCounter {
+	for _, v := range nodeCounter { //TODO 为何只循环一次？
 		topology.numNodePerSocket = v.Len()
 		break
 	}

@@ -40,7 +40,6 @@ const (
 	defaultGCPeriod = 3 * time.Second
 )
 
-
 type nodeDevice struct {
 	lock          sync.RWMutex
 	deviceTotal   map[schedulingv1alpha1.DeviceType]deviceResources
@@ -53,7 +52,7 @@ type nodeDevice struct {
 }
 
 type VFAllocation struct {
-	allocatedVFs map[int]sets.String
+	allocatedVFs map[int]sets.String //TODO minor0:busId0\busId1\busId2
 }
 
 func newNodeDevice() *nodeDevice {
@@ -198,6 +197,7 @@ func (n *nodeDevice) updateDeviceUsed(deviceType schedulingv1alpha1.DeviceType, 
 	if !add && len(deviceUsed) == 0 {
 		delete(n.deviceUsed, deviceType)
 	}
+	//TODO 更新已分配VF信息: nodeDevice.vfAllocations
 	n.updateCacheVFAllocations(deviceType, allocations, add)
 }
 
@@ -278,7 +278,7 @@ func (n *nodeDevice) removeVFAllocations(deviceType schedulingv1alpha1.DeviceTyp
 	if vfAlloc == nil {
 		return
 	}
-	for minor, vfs := range vfAllocations.allocatedVFs {
+	for minor, vfs := range vfAllocations.allocatedVFs { //TODO minor0:busId0\busId1\busId2
 		old := vfAlloc.allocatedVFs[minor]
 		for v := range vfs {
 			old.Delete(v)
@@ -402,7 +402,7 @@ func filterFreeDevicesByPCIe(n *nodeDevice, freeDeviceResources deviceResources,
 		for _, pcie := range pcies {
 			skipped := false
 			for _, minor := range pcie.devices[deviceType] {
-				totalRes := totalDeviceResources[minor]//"1": {koordinator.sh/gpu-core:100, koordinator.sh/gpu-memory-ratio:100, koordinator.sh/gpu-memory: 16GB}
+				totalRes := totalDeviceResources[minor] //"1": {koordinator.sh/gpu-core:100, koordinator.sh/gpu-memory-ratio:100, koordinator.sh/gpu-memory: 16GB}
 				freeRes := freeDeviceResources[minor]
 				if !quotav1.Equals(totalRes, freeRes) {
 					skipped = true

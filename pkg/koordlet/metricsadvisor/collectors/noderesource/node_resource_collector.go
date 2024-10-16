@@ -70,6 +70,7 @@ func (n *nodeResourceCollector) Setup(c *framework.Context) {
 	n.sharedState = c.State
 }
 
+// TODO 周期性调用收集器收集设备信息，目前支持GPU收集器和RDMA收集器
 func (n *nodeResourceCollector) Run(stopCh <-chan struct{}) {
 	devicesSynced := func() bool {
 		return framework.DeviceCollectorsStarted(n.deviceCollectors)
@@ -127,6 +128,7 @@ func (n *nodeResourceCollector) collectNodeResUsed() {
 	nodeMetrics = append(nodeMetrics, cpuUsageMetrics)
 
 	for name, deviceCollector := range n.deviceCollectors {
+		//TODO 循环调用收集器的info方法，收集不同类型设备的信息，比如GPU RDMA，写入到MetricCache，后续states_device_linux.go会从MetricCache读取GPU\RDMA设备信息，写入CRD-Device中
 		if !deviceCollector.Enabled() {
 			klog.V(6).Infof("skip node metrics from the disabled device collector %s", name)
 			continue

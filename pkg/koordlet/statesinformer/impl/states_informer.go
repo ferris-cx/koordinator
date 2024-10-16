@@ -80,13 +80,20 @@ type PluginState struct {
 
 type GetGPUDriverAndModelFunc func() (string, string)
 
+// TODO GPU故障码
+type xidDesc struct {
+	uuid string
+	xid  uint64
+}
+
 type statesInformer struct {
 	// TODO refactor device as plugin
-	config       *Config
-	metricsCache metriccache.MetricCache
-	deviceClient schedv1alpha1.DeviceInterface
-	unhealthyGPU map[string]struct{}
-	gpuMutex     sync.RWMutex
+	config          *Config
+	metricsCache    metriccache.MetricCache
+	deviceClient    schedv1alpha1.DeviceInterface
+	unhealthyGPU    map[string]struct{}
+	unhealthyXidGPU map[string]uint64 //TODO xid故障码
+	gpuMutex        sync.RWMutex
 
 	option  *PluginOption
 	states  *PluginState
@@ -162,6 +169,7 @@ func (s *statesInformer) Run(stopCh <-chan struct{}) error {
 	}
 
 	if features.DefaultKoordletFeatureGate.Enabled(features.Accelerators) {
+		//TODO 每隔一定周期扫描设备
 		go wait.Until(s.reportDevice, s.config.NodeTopologySyncInterval, stopCh)
 		// check is nvml is available
 		if s.initGPU() {

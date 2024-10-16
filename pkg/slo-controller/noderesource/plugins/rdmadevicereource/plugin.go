@@ -17,7 +17,7 @@ limitations under the License.
 package rdmadeviceresource
 
 import (
-	`context`
+	"context"
 	"fmt"
 	"sort"
 
@@ -43,12 +43,12 @@ const (
 	UpdateLabelsMsg    = "node rdma labels from device"
 
 	NeedSyncForResourceDiffMsg = "rdma resource diff is big than threshold"
-	NeedSyncForRDMAModelMsgFmt  = "rdma device label %s changed"
+	NeedSyncForRDMAModelMsgFmt = "rdma device label %s changed"
 )
 
 var (
 	ResourceNames = []corev1.ResourceName{
-		extension.ResourceRDMA,//koordinator.sh/rdma
+		extension.ResourceRDMA, //koordinator.sh/rdma
 	}
 
 	//TODO add label for rdma
@@ -95,18 +95,6 @@ func (p *Plugin) NeedSync(strategy *configuration.ColocationStrategy, oldNode, n
 
 	return false, ""
 }
-
-/*func (p *Plugin) NeedSyncMeta(_ *configuration.ColocationStrategy, oldNode, newNode *corev1.Node) (bool, string) {
-	for _, label := range Labels {
-		if oldNode.Labels[label] != newNode.Labels[label] {
-			klog.V(4).InfoS("need sync node metadata since label change", "node", newNode.Name,
-				"label", label, "old", oldNode.Labels[label], "new", newNode.Labels[label])
-			return true, fmt.Sprintf(NeedSyncForRDMAModelMsgFmt, label)
-		}
-	}
-
-	return false, ""
-}*/
 
 func (p *Plugin) Prepare(_ *configuration.ColocationStrategy, node *corev1.Node, nr *framework.NodeResource) error {
 	// prepare node resources
@@ -183,7 +171,7 @@ func (p *Plugin) calculate(node *corev1.Node, device *schedulingv1alpha1.Device)
 		rdmaPFNum++
 		if d.VFGroups != nil {
 			rdmaVFNum := 0
-			for _, vg := range d.VFGroups{
+			for _, vg := range d.VFGroups {
 				rdmaVFNum += len(vg.VFs)
 			}
 			rdmaStasMap[*d.Minor] = rdmaVFNum
@@ -196,7 +184,7 @@ func (p *Plugin) calculate(node *corev1.Node, device *schedulingv1alpha1.Device)
 	}
 
 	//For now, only one server supports one form, either PF or VF
-	if vfs==0 {
+	if vfs == 0 {
 		totalPF := resource.NewQuantity(int64(rdmaPFNum), resource.BinarySI)
 		rdmaResources[extension.ResourceRDMA] = *totalPF
 	} else {

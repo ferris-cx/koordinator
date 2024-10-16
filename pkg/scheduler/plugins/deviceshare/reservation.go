@@ -183,6 +183,7 @@ func (p *Plugin) FinalRestoreReservation(ctx context.Context, cycleState *framew
 	return nil
 }
 
+// TODO 根据不同的分配策略（如 Aligned 和 Restricted）来决定如何从已匹配的预留资源中分配设备资源给 Pod
 func (p *Plugin) tryAllocateFromReservation(
 	allocator *AutopilotAllocator,
 	state *preFilterState,
@@ -224,11 +225,16 @@ func (p *Plugin) tryAllocateFromReservation(
 		//
 		preemptible := appendAllocated(nil, basicPreemptible, alloc.remained, preemptibleInRR)
 
+		/**
+		* 默认或 Aligned 策略：直接从优选的设备资源和可抢占资源中分配。
+		* Restricted 策略：首先确保优选的设备资源满足要求，然后检查所需的设备资源是否在预留范围内，并进行分配
+		**/
 		allocatePolicy := rInfo.GetAllocatePolicy()
 		// TODO: Currently the ReservationAllocatePolicyDefault is actually implemented as
 		//       ReservationAllocatePolicyAligned. Need to re-visit the policies.
 		if allocatePolicy == schedulingv1alpha1.ReservationAllocatePolicyDefault ||
 			allocatePolicy == schedulingv1alpha1.ReservationAllocatePolicyAligned {
+			//TODO 默认或 Aligned 策略：直接从优选的设备资源和可抢占资源中分配
 			result, status = allocator.Allocate(nil, preferred, nil, preemptible)
 			if !status.IsSuccess() {
 				reservationReasons = append(reservationReasons, status)
@@ -239,6 +245,7 @@ func (p *Plugin) tryAllocateFromReservation(
 			break
 
 		} else if allocatePolicy == schedulingv1alpha1.ReservationAllocatePolicyRestricted {
+			//TODO Restricted 策略：首先确保优选的设备资源满足要求，然后检查所需的设备资源是否在预留范围内，并进行分配
 			_, status = allocator.Allocate(preferred, preferred, nil, preemptible)
 			if !status.IsSuccess() {
 				reservationReasons = append(reservationReasons, status)

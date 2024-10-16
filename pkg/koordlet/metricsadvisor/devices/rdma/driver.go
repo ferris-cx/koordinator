@@ -42,7 +42,7 @@ func GetNetDevice() (metriccache.Devices, error) {
 		//log.Warningf("rdma netDevices2: %+v", netDevice)
 		if len(netDevice.RDMAResources) == 0 {
 			klog.Warningf("getNetDevice(): no rdma device for pci device %s", device.Address)
-			//continue
+			continue
 		}
 		nodeID, pcie, _, err := helper.ParsePCIInfo(device.Address)
 		//klog.Warningf("getNetDevice(): nodeID:%d pcie:%s", nodeID, pcie)

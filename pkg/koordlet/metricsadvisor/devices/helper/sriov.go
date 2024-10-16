@@ -40,7 +40,7 @@ func GetVFList(pf string) (vfList []string, err error) {
 		err = fmt.Errorf("error reading VF directories %v", err)
 		return
 	}
-
+	//TODO 排序
 	sort.Slice(vfDirs, func(i, j int) bool {
 		return extractNumber(pfDir, vfDirs[i]) < extractNumber(pfDir, vfDirs[j])
 	})

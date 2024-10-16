@@ -43,6 +43,7 @@ func (s *statesInformer) reportDevice() {
 		klog.Errorf("node is nil")
 		return
 	}
+	//TODO 先扫描GPU设备，从metricsCache中读取，如果没有GPU，这台服务器不会生成Device-cr
 	gpuDevices := s.buildGPUDevice()
 	if len(gpuDevices) == 0 {
 		return
@@ -53,6 +54,7 @@ func (s *statesInformer) reportDevice() {
 	device := s.buildBasicDevice(node)
 	s.fillGPUDevice(device, gpuDevices, gpuModel, gpuDriverVer)
 
+	//TODO 扫描网卡设备，从metricsCache中读取
 	rdmaDevices := s.buildRDMADevice()
 	if len(rdmaDevices) != 0 {
 		device.Spec.Devices = append(device.Spec.Devices, rdmaDevices...)
@@ -63,11 +65,12 @@ func (s *statesInformer) reportDevice() {
 		klog.V(4).Infof("successfully update Device %s", node.Name)
 		return
 	}
+	//TODO 如果CRD的Device已经存在且更新失败，则打印错误日志并返回
 	if !errors.IsNotFound(err) {
 		klog.Errorf("Failed to updateDevice %s, err: %v", node.Name, err)
 		return
 	}
-
+	//TODO 如果CRD的Device不存在，即第一次则创建
 	err = s.createDevice(device)
 	if err == nil {
 		klog.V(4).Infof("successfully create Device %s", node.Name)
@@ -140,7 +143,7 @@ func (s *statesInformer) updateDevice(device *schedulingv1alpha1.Device) error {
 
 		latestDevice.Spec.Devices = device.Spec.Devices
 		latestDevice.Labels = device.Labels
-
+		//TODO 更新CRD-Device到ETCD
 		_, err = s.deviceClient.Update(context.TODO(), latestDevice, metav1.UpdateOptions{})
 		return err
 	})
@@ -163,9 +166,11 @@ func (s *statesInformer) buildGPUDevice() []schedulingv1alpha1.DeviceInfo {
 	for idx := range gpus {
 		gpu := gpus[idx]
 		health := true
+		xid := uint64(-1)
 		s.gpuMutex.RLock()
-		if _, ok := s.unhealthyGPU[gpu.UUID]; ok {
+		if _, ok := s.unhealthyGPU[gpu.UUID]; ok { //TODO 填充故障码
 			health = false
+			xid = s.unhealthyXidGPU[gpu.UUID]
 		}
 		s.gpuMutex.RUnlock()
 
@@ -184,6 +189,7 @@ func (s *statesInformer) buildGPUDevice() []schedulingv1alpha1.DeviceInfo {
 			Minor:  &gpu.Minor,
 			Type:   schedulingv1alpha1.GPU,
 			Health: health,
+			Xid:    xid, //TODO 填充故障码
 			Resources: map[corev1.ResourceName]resource.Quantity{
 				extension.ResourceGPUCore:        *resource.NewQuantity(100, resource.DecimalSI),
 				extension.ResourceGPUMemory:      *resource.NewQuantity(int64(gpu.MemoryTotal), resource.BinarySI),
@@ -215,7 +221,7 @@ func (s *statesInformer) buildRDMADevice() []schedulingv1alpha1.DeviceInfo {
 			Type:   schedulingv1alpha1.RDMA,
 			Health: true,
 			Resources: map[corev1.ResourceName]resource.Quantity{
-				extension.ResourceRDMA: *resource.NewQuantity(100, resource.DecimalSI),//TODO 100-》1
+				extension.ResourceRDMA: *resource.NewQuantity(100, resource.DecimalSI), //TODO 100-》1
 			},
 			Topology: &schedulingv1alpha1.DeviceTopology{
 				SocketID: -1,
@@ -235,7 +241,7 @@ func (s *statesInformer) buildRDMADevice() []schedulingv1alpha1.DeviceInfo {
 			sort.Slice(vfs, func(i, j int) bool {
 				return vfs[i].BusID < vfs[j].BusID
 			})
-//TODO pF:vf*1  pf:vf*4
+			//TODO pF:vf*1  pf:vf*4
 			deviceInfo.VFGroups = append(deviceInfo.VFGroups, schedulingv1alpha1.VirtualFunctionGroup{
 				Labels: nil,
 				VFs:    vfs,
@@ -346,20 +352,23 @@ func (s *statesInformer) gpuHealCheck(stopCh <-chan struct{}) {
 		}
 		devices = append(devices, uuid)
 	}
-	unhealthyChan := make(chan string)
+	/*unhealthyChan := make(chan string)*/
+	unhealthyChan := make(chan xidDesc)
 	go checkHealth(stopCh, devices, unhealthyChan)
 	klog.Info("start to do gpu health check")
 	for d := range unhealthyChan {
 		// FIXME: there is no way to recover from the Unhealthy state.
 		s.gpuMutex.Lock()
-		s.unhealthyGPU[d] = struct{}{}
+		//s.unhealthyGPU[d] = struct{}{}
+		s.unhealthyGPU[d.uuid] = struct{}{}
+		s.unhealthyXidGPU[d.uuid] = d.xid
 		s.gpuMutex.Unlock()
 		klog.Infof("get a unhealthy gpu %s", d)
 	}
 }
 
 // check status of gpus, and send unhealthy devices to the unhealthyDeviceChan channel
-func checkHealth(stopCh <-chan struct{}, devs []string, xids chan<- string) {
+func checkHealth(stopCh <-chan struct{}, devs []string, xids chan<- xidDesc) {
 	eventSet, ret := nvml.EventSetCreate()
 	if ret != nvml.SUCCESS {
 		klog.Errorf("failed to create event set, err: %v", nvml.ErrorString(ret))
@@ -376,7 +385,8 @@ func checkHealth(stopCh <-chan struct{}, devs []string, xids chan<- string) {
 		ret = nvml.DeviceRegisterEvents(device, nvml.EventTypeXidCriticalError, eventSet)
 		if ret == nvml.ERROR_NOT_SUPPORTED {
 			klog.Infof("Warning: %s is too old to support healthchecking: %v. Marking it unhealthy.", d, nvml.ErrorString(ret))
-			xids <- d
+			//xids <- d  -3代表不支持健康检测
+			xids <- xidDesc{uuid: d, xid: uint64(ret * -1)}
 			continue
 		}
 
@@ -400,6 +410,7 @@ func checkHealth(stopCh <-chan struct{}, devs []string, xids chan<- string) {
 
 		// http://docs.nvidia.com/deploy/xid-errors/index.html#topic_4
 		// Application errors: the GPU should still be healthy
+		//常见的 XID 可以按照下面方法判定:硬件故障：48、56-58、62-65、68、69、70-77、79、80~86、88、89、94-99、100~105、110~119、122、125驱动故障: 31用户程序问题：13、43、45
 		if e.EventData == 13 || e.EventData == 31 || e.EventData == 43 || e.EventData == 45 || e.EventData == 68 {
 			continue
 		}
@@ -413,14 +424,16 @@ func checkHealth(stopCh <-chan struct{}, devs []string, xids chan<- string) {
 		if len(uuid) == 0 {
 			// All devices are unhealthy
 			for _, d := range devs {
-				xids <- d
+				//xids <- d
+				xids <- xidDesc{uuid: d, xid: e.EventData}
 			}
 			continue
 		}
 
 		for _, d := range devs {
 			if d == uuid {
-				xids <- d
+				//xids <- d
+				xids <- xidDesc{uuid: d, xid: e.EventData}
 			}
 		}
 	}

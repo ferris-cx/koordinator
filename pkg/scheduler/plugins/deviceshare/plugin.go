@@ -18,6 +18,7 @@ package deviceshare
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	corev1 "k8s.io/api/core/v1"
 
@@ -404,7 +405,7 @@ func (p *Plugin) Reserve(ctx context.Context, cycleState *framework.CycleState, 
 	if state.skip {
 		return nil
 	}
-
+	p.handle.ClientSet()
 	nodeInfo, err := p.handle.SnapshotSharedLister().NodeInfos().Get(nodeName)
 	if err != nil {
 		return framework.AsStatus(err)
@@ -523,13 +524,15 @@ func (p *Plugin) preBindObject(ctx context.Context, cycleState *framework.CycleS
 	}
 
 	//Fill the field busID for the assignment result
+	klog.V(4).Infof("preBindObject: nodeDeviceCache: %v", p.nodeDeviceCache)
 	var deviceAllocs *apiext.DeviceAllocations
 	deviceAllocs, err := fillBDFInfo(p.nodeDeviceCache, &state.allocationResult, nodeName)
-	if err!=nil {
+	if err != nil {
 		klog.V(4).Info("preBindObject: fillBDFInfo error: %s", err)
+	} else {
+		state.allocationResult = *deviceAllocs
 	}
 
-	state.allocationResult = *deviceAllocs
 	if err := apiext.SetDeviceAllocations(object, state.allocationResult); err != nil {
 		return framework.NewStatus(framework.Error, err.Error())
 	}
@@ -537,32 +540,44 @@ func (p *Plugin) preBindObject(ctx context.Context, cycleState *framework.CycleS
 }
 
 func fillBDFInfo(nodeDeviceCache *nodeDeviceCache, deviceAllocations *apiext.DeviceAllocations, nodeName string) (*apiext.DeviceAllocations, error) {
-	klog.V(5).Info("fillBDFInfo:", "nodeDeviceCache", nodeDeviceCache, "deviceAllocations", deviceAllocations,"nodeName", nodeName)
-	if nodeDeviceCache ==nil || deviceAllocations==nil{
-		return deviceAllocations, nil
+	if nodeDeviceCache == nil || nodeDeviceCache.nodeDeviceInfos[nodeName] == nil || deviceAllocations == nil {
+		return deviceAllocations, errors.New("nodeDeviceCache is null or deviceAllocations is null")
 	}
-	klog.V(5).Info("fillBDFInfo: start to get deviceInfos")
-	var deviceInfos []*schedulingv1alpha1.DeviceInfo
-	if nodeDeviceCache.nodeDeviceInfos[nodeName] !=nil {
-		if nodeDeviceCache.nodeDeviceInfos[nodeName].deviceInfos !=nil {
-			deviceInfos = nodeDeviceCache.nodeDeviceInfos[nodeName].deviceInfos[schedulingv1alpha1.RDMA]
+	klog.V(4).Infof("fillBDFInfo nodeDeviceCache: %v, deviceAllocations: %v, nodeName:%s", nodeDeviceCache, deviceAllocations, nodeName)
+
+	deviceTypes := []schedulingv1alpha1.DeviceType{schedulingv1alpha1.GPU, schedulingv1alpha1.RDMA}
+	/*var deviceInfos map[schedulingv1alpha1.DeviceType][]*schedulingv1alpha1.DeviceInfo
+	if nodeDeviceCache.nodeDeviceInfos[nodeName] != nil {
+		if nodeDeviceCache.nodeDeviceInfos[nodeName].deviceInfos != nil {
+			for _, deviceType := range deviceTypes {
+				devices, ok := nodeDeviceCache.nodeDeviceInfos[nodeName].deviceInfos[deviceType]
+				klog.V(4).Info("fillBDFInfo: deviceType:%s ok:v% devices:v%", deviceType, ok, devices)
+				if !ok || len(devices) == 0 {
+					klog.V(4).Info("fillBDFInfo: deviceType:%s is not found", deviceType)
+					continue
+				}
+				deviceInfos[deviceType] = devices
+			}
 		}
 	}
+
 	klog.V(4).Info("fillBDFInfo:", "deviceInfos", deviceInfos)
-	if deviceInfos ==nil {
+	if deviceInfos == nil {
 		return deviceAllocations, nil
-	}
-
+	}*/
 	deviceAllocMap := *deviceAllocations
-	rdmaAllocations, ok := deviceAllocMap[schedulingv1alpha1.RDMA]
-	if !ok {
-		return deviceAllocations, nil
-	}
 
-	for i, dev := range rdmaAllocations {
-		for _,devTmp := range deviceInfos {
-			if dev.Minor == *devTmp.Minor{
-				rdmaAllocations[i].BusID = devTmp.Topology.BusID
+	for _, deviceType := range deviceTypes {
+		allocations, ok := deviceAllocMap[deviceType]
+		if !ok {
+			klog.V(4).Infof("fillBDFInfo: no %s device", deviceType)
+			continue
+		}
+		for i, dev := range allocations {
+			for _, devTmp := range nodeDeviceCache.nodeDeviceInfos[nodeName].deviceInfos[deviceType] {
+				if dev.Minor == *devTmp.Minor {
+					allocations[i].BusID = devTmp.Topology.BusID
+				}
 			}
 		}
 	}
@@ -626,14 +641,14 @@ func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) 
 	registerPodEventHandler(deviceCache, handle.SharedInformerFactory(), extendedHandle.KoordinatorSharedInformerFactory())
 	go deviceCache.gcNodeDevice(context.TODO(), handle.SharedInformerFactory(), defaultGCPeriod)
 
-	//启动个线程，异步生成设备拓扑内容到文件里
+	//Start the topology tree persistence task add by @nilei
 	go func() {
-		ticker := time.NewTicker(10 * time.Second)
+		ticker := time.NewTicker(60 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				klog.V(4).Info("start to generateDeviceFiles every node")
+				klog.V(4).Info("start to generateDeviceFiles every node,total node:%d", len(deviceCache.nodeDeviceInfos))
 				GenerateDeviceFiles(deviceCache.nodeDeviceInfos)
 			}
 		}
