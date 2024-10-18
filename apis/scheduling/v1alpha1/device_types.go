@@ -47,7 +47,7 @@ type DeviceInfo struct {
 	// Health indicates whether the device is normal
 	// +kubebuilder:default=false
 	Health bool `json:"health"`
-	//TODO 临时添加，目的为了显示故障码
+	// device trouble code Currently support GPU
 	Xid uint64 `json:"xid"`
 	// Resources is a set of (resource name, quantity) pairs
 	Resources corev1.ResourceList `json:"resources,omitempty"`
